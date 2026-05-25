@@ -30,5 +30,4 @@ public class AssessmentType
 
     public ICollection<AssessmentQuestion> AssessmentQuestions { get; set; } = new List<AssessmentQuestion>();
     public ICollection<RiskRule> RiskRules { get; set; } = new List<RiskRule>();
-    public ICollection<AssessmentSession> AssessmentSessions { get; set; } = new List<AssessmentSession>();
 }

@@ -1,7 +1,9 @@
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using TBCarePlus.API.Data;
 using TBCarePlus.API.DTOs;
+using TBCarePlus.API.Models;
 
 namespace TBCarePlus.API.Controllers;
 
@@ -11,11 +13,13 @@ public class AuthController : ControllerBase
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _config;
+    private readonly AppDbContext _db;
 
-    public AuthController(IHttpClientFactory httpClientFactory, IConfiguration config)
+    public AuthController(IHttpClientFactory httpClientFactory, IConfiguration config, AppDbContext db)
     {
         _httpClientFactory = httpClientFactory;
         _config = config;
+        _db = db;
     }
 
     [HttpPost("register")]
@@ -37,7 +41,7 @@ public class AuthController : ControllerBase
             {
                 data = new
                 {
-                    full_name = request.FullName ?? "",
+                    display_name = request.Nickname ?? "",
                     email_confirm = true
                 }
             }
@@ -62,6 +66,16 @@ public class AuthController : ControllerBase
         }
 
         var authResponse = BuildAuthResponse(responseBody);
+
+        var profile = new Profile
+        {
+            Id = Guid.Parse(authResponse.User.Id),
+            Nickname = request.Nickname ?? string.Empty,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        _db.Profiles.Add(profile);
+        await _db.SaveChangesAsync();
 
         return Created(string.Empty, ApiResponse<AuthResponseDto>.Ok(authResponse, "Registration successful."));
     }
@@ -100,7 +114,70 @@ public class AuthController : ControllerBase
 
         var authResponse = BuildAuthResponse(responseBody);
 
+        // Override FullName with nickname from profiles table
+        if (Guid.TryParse(authResponse.User.Id, out var userId))
+        {
+            var profile = await _db.Profiles.FindAsync(userId);
+            if (profile != null)
+            {
+                if (!string.IsNullOrEmpty(profile.Nickname))
+                    authResponse.User.FullName = profile.Nickname;
+            }
+            else
+            {
+                var nickname = authResponse.User.FullName ?? "";
+                if (!string.IsNullOrEmpty(nickname))
+                {
+                    profile = new Profile
+                    {
+                        Id = userId,
+                        Nickname = nickname,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _db.Profiles.Add(profile);
+                    await _db.SaveChangesAsync();
+                }
+            }
+        }
+
         return Ok(ApiResponse<AuthResponseDto>.Ok(authResponse, "Login successful."));
+    }
+
+    [HttpGet("me")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> GetMe()
+    {
+        var subClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
+                      ?? User.FindFirst("sub");
+        if (subClaim is null || !Guid.TryParse(subClaim.Value, out var userId))
+            return Unauthorized(ApiResponse<object>.Fail("User ID not found in token."));
+
+        var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value 
+                    ?? User.FindFirst("email")?.Value;
+
+        var profile = await _db.Profiles.FindAsync(userId);
+        var nickname = profile?.Nickname;
+
+        if (string.IsNullOrEmpty(nickname))
+        {
+            var nameClaim = User.FindFirst("name")?.Value 
+                            ?? User.FindFirst("display_name")?.Value;
+            nickname = nameClaim;
+        }
+
+        var userDto = new UserDto
+        {
+            Id = userId.ToString(),
+            Email = email,
+            FullName = nickname,
+            Role = User.FindFirst("role")?.Value ?? "authenticated",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        return Ok(ApiResponse<UserDto>.Ok(userDto, "User profile retrieved successfully."));
     }
 
     /// <summary>
@@ -153,7 +230,7 @@ public class AuthController : ControllerBase
 
         var metadata = user.TryGetProperty("user_metadata", out var um) ? um : default;
         var fullName = metadata.ValueKind != JsonValueKind.Undefined
-            && metadata.TryGetProperty("full_name", out var fn) ? fn.GetString() : null;
+            && metadata.TryGetProperty("display_name", out var fn) ? fn.GetString() : null;
 
         return new AuthResponseDto
         {
@@ -178,7 +255,7 @@ public class AuthRegisterRequest
 {
     public string Email { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
-    public string? FullName { get; set; }
+    public string? Nickname { get; set; }
 }
 
 public class AuthLoginRequest

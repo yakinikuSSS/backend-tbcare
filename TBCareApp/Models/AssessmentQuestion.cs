@@ -26,6 +26,4 @@ public class AssessmentQuestion
 
     [ForeignKey(nameof(SymptomId))]
     public Symptom Symptom { get; set; } = null!;
-
-    public ICollection<AssessmentAnswer> AssessmentAnswers { get; set; } = new List<AssessmentAnswer>();
 }

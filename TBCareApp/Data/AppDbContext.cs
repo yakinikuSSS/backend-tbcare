@@ -13,9 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<AssessmentQuestion> AssessmentQuestions => Set<AssessmentQuestion>();
     public DbSet<RiskRule> RiskRules => Set<RiskRule>();
     public DbSet<RiskLevel> RiskLevels => Set<RiskLevel>();
-    public DbSet<AssessmentSession> AssessmentSessions => Set<AssessmentSession>();
-    public DbSet<AssessmentAnswer> AssessmentAnswers => Set<AssessmentAnswer>();
-    public DbSet<AssessmentResult> AssessmentResults => Set<AssessmentResult>();
+    public DbSet<Profile> Profiles => Set<Profile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -83,32 +81,6 @@ public class AppDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()");
             entity.HasOne(e => e.TbType).WithMany(t => t.RiskLevels).HasForeignKey(e => e.TbTypeId).OnDelete(DeleteBehavior.Cascade);
-        });
-
-        modelBuilder.Entity<AssessmentSession>(entity =>
-        {
-            entity.ToTable("assessment_sessions");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-            entity.HasOne(e => e.AssessmentType).WithMany(at => at.AssessmentSessions).HasForeignKey(e => e.AssessmentTypeId).OnDelete(DeleteBehavior.Restrict);
-        });
-
-        modelBuilder.Entity<AssessmentAnswer>(entity =>
-        {
-            entity.ToTable("assessment_answers");
-            entity.Property(e => e.CfValue).HasColumnType("numeric(3,1)");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-            entity.HasOne(e => e.Session).WithMany(s => s.Answers).HasForeignKey(e => e.SessionId).OnDelete(DeleteBehavior.Cascade);
-            entity.HasOne(e => e.Question).WithMany(q => q.AssessmentAnswers).HasForeignKey(e => e.QuestionId).OnDelete(DeleteBehavior.Restrict);
-        });
-
-        modelBuilder.Entity<AssessmentResult>(entity =>
-        {
-            entity.ToTable("assessment_results");
-            entity.Property(e => e.TotalScore).HasColumnType("numeric(10,2)");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-            entity.HasOne(e => e.Session).WithMany(s => s.Results).HasForeignKey(e => e.SessionId).OnDelete(DeleteBehavior.Cascade);
-            entity.HasOne(e => e.TbType).WithMany().HasForeignKey(e => e.TbTypeId).OnDelete(DeleteBehavior.Restrict);
-            entity.HasOne(e => e.RiskLevel).WithMany().HasForeignKey(e => e.RiskLevelId).OnDelete(DeleteBehavior.SetNull);
         });
 
         // ── Global snake_case naming convention ─────────────────────

@@ -105,15 +105,21 @@ builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        var supabaseUrl = builder.Configuration["Supabase:Url"];
+        if (!string.IsNullOrEmpty(supabaseUrl))
+        {
+            options.Authority = $"{supabaseUrl}/auth/v1";
+        }
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuerSigningKey = signingKeyBytes is not null,
+            ValidateIssuerSigningKey = signingKeyBytes is not null || !string.IsNullOrEmpty(supabaseUrl),
             IssuerSigningKey         = signingKeyBytes is not null
                 ? new SymmetricSecurityKey(signingKeyBytes) : null,
-            ValidateIssuer           = false,
-            ValidateAudience         = signingKeyBytes is not null,
+            ValidateIssuer           = !string.IsNullOrEmpty(supabaseUrl),
+            ValidIssuer              = !string.IsNullOrEmpty(supabaseUrl) ? $"{supabaseUrl}/auth/v1" : null,
+            ValidateAudience         = true,
             ValidAudience            = "authenticated",
-            ValidateLifetime         = signingKeyBytes is not null,
+            ValidateLifetime         = true,
             ClockSkew                = TimeSpan.Zero,
         };
     });
@@ -126,7 +132,6 @@ builder.Services.AddScoped<ITbTypeService,    TbTypeService>();
 builder.Services.AddScoped<ISymptomService,   SymptomService>();
 builder.Services.AddScoped<IAssessmentService, AssessmentService>();
 builder.Services.AddScoped<IRiskLevelService, RiskLevelService>();
-builder.Services.AddScoped<IDiagnosisService, DiagnosisService>();
 
 // ── CORS ────────────────────────────────────────────────────────────
 var allowedOrigins = builder.Configuration

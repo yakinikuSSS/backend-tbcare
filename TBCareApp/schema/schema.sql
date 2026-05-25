@@ -48,6 +48,14 @@ CREATE TABLE tbcare_plus.assessment_types (
   result_unit text NOT NULL DEFAULT 'percentage'::text,
   CONSTRAINT assessment_types_pkey PRIMARY KEY (id)
 );
+CREATE TABLE tbcare_plus.profiles (
+  id uuid NOT NULL,
+  nickname character varying NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+);
 CREATE TABLE tbcare_plus.risk_levels (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   code text NOT NULL,
