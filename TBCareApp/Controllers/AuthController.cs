@@ -37,7 +37,8 @@ public class AuthController : ControllerBase
             {
                 data = new
                 {
-                    full_name = request.FullName ?? ""
+                    full_name = request.FullName ?? "",
+                    email_confirm = true
                 }
             }
         };
@@ -56,9 +57,8 @@ public class AuthController : ControllerBase
 
         if (!response.IsSuccessStatusCode)
         {
-            using var errDoc = JsonDocument.Parse(responseBody);
-            var msg = errDoc.RootElement.TryGetProperty("msg", out var m) ? m.GetString() : responseBody;
-            return BadRequest(ApiResponse<object>.Fail(msg ?? "Registration failed."));
+            var msg = ParseSupabaseError(responseBody, "Registration failed.");
+            return BadRequest(ApiResponse<object>.Fail(msg));
         }
 
         var authResponse = BuildAuthResponse(responseBody);
@@ -94,14 +94,48 @@ public class AuthController : ControllerBase
 
         if (!response.IsSuccessStatusCode)
         {
-            using var errDoc = JsonDocument.Parse(responseBody);
-            var msg = errDoc.RootElement.TryGetProperty("msg", out var m) ? m.GetString() : responseBody;
-            return Unauthorized(ApiResponse<object>.Fail(msg ?? "Login failed."));
+            var msg = ParseSupabaseError(responseBody, "Login failed.");
+            return Unauthorized(ApiResponse<object>.Fail(msg));
         }
 
         var authResponse = BuildAuthResponse(responseBody);
 
         return Ok(ApiResponse<AuthResponseDto>.Ok(authResponse, "Login successful."));
+    }
+
+    /// <summary>
+    /// Parses a Supabase error response body into a human-readable message.
+    /// Supabase uses different error shapes depending on the endpoint:
+    ///   OAuth token errors:  { "error": "...", "error_description": "..." }
+    ///   Auth REST errors:    { "code": 400, "error_code": "...", "msg": "..." }
+    ///   GoTrue v2 errors:    { "message": "..." }
+    /// </summary>
+    private static string ParseSupabaseError(string responseBody, string fallback)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(responseBody);
+            var root = doc.RootElement;
+
+            // OAuth token endpoint format
+            if (root.TryGetProperty("error_description", out var ed) && ed.ValueKind == JsonValueKind.String)
+                return ed.GetString()!;
+
+            // GoTrue v2 / newer format
+            if (root.TryGetProperty("message", out var message) && message.ValueKind == JsonValueKind.String)
+                return message.GetString()!;
+
+            // GoTrue v1 format
+            if (root.TryGetProperty("msg", out var msg) && msg.ValueKind == JsonValueKind.String)
+                return msg.GetString()!;
+
+            // Generic error field
+            if (root.TryGetProperty("error", out var err) && err.ValueKind == JsonValueKind.String)
+                return err.GetString()!;
+        }
+        catch { /* JSON parse failed, fall through */ }
+
+        return fallback;
     }
 
     private static AuthResponseDto BuildAuthResponse(string supabaseResponseJson)
