@@ -13,6 +13,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - `AssessmentController` now only serves assessment configuration endpoints (`GET /config`, `GET /full-config`); submission/diagnosis logic has been removed and moved to client-side calculation.
+
+### Fixed
+- Verified and aligned integration compatibility with mobile client's client-side saturation calculation.
 - `AppDbContext` updated to remove `DbSet` references for `AssessmentSession`, `AssessmentAnswer`, and `AssessmentResult`; added `DbSet<Profile>` for the profiles table.
 - `Program.cs` cleaned up: removed `IDiagnosisService`/`DiagnosisService` service registration.
 - `schema.sql` updated to remove `assessment_sessions`, `assessment_answers`, and `assessment_results` table definitions; added `profiles` table definition.
