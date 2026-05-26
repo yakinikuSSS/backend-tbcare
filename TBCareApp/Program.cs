@@ -55,6 +55,10 @@ var supabaseKey = Environment.GetEnvironmentVariable("SUPABASE_KEY");
 if (!string.IsNullOrEmpty(supabaseKey))
     builder.Configuration["Supabase:Key"] = supabaseKey;
 
+var supabaseServiceRoleKey = Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY");
+if (!string.IsNullOrEmpty(supabaseServiceRoleKey))
+    builder.Configuration["Supabase:ServiceRoleKey"] = supabaseServiceRoleKey;
+
 var supabaseJwtSecret = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
 if (!string.IsNullOrEmpty(supabaseJwtSecret))
     builder.Configuration["Supabase:JwtSecret"] = supabaseJwtSecret;
@@ -106,21 +110,38 @@ builder.Services
     .AddJwtBearer(options =>
     {
         var supabaseUrl = builder.Configuration["Supabase:Url"];
+
+        // Supabase may sign JWTs either symmetrically (HS256, using JWT secret) or asymmetrically (RS256 with kid via JWKS).
+        // Always set Authority so JwtBearer can fetch JWKS when tokens contain `kid`.
         if (!string.IsNullOrEmpty(supabaseUrl))
-        {
             options.Authority = $"{supabaseUrl}/auth/v1";
-        }
+
+        if (builder.Environment.IsDevelopment())
+            options.RequireHttpsMetadata = false;
+
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = ctx =>
+            {
+                ctx.HttpContext.RequestServices
+                    .GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("JwtBearer")
+                    .LogWarning(ctx.Exception, "JWT authentication failed: {Message}", ctx.Exception.Message);
+                return Task.CompletedTask;
+            },
+        };
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = signingKeyBytes is not null || !string.IsNullOrEmpty(supabaseUrl),
-            IssuerSigningKey         = signingKeyBytes is not null
-                ? new SymmetricSecurityKey(signingKeyBytes) : null,
-            ValidateIssuer           = !string.IsNullOrEmpty(supabaseUrl),
-            ValidIssuer              = !string.IsNullOrEmpty(supabaseUrl) ? $"{supabaseUrl}/auth/v1" : null,
-            ValidateAudience         = true,
-            ValidAudience            = "authenticated",
+            // If HS256 is used, this symmetric key will validate.
+            // If RS256+JWKS is used, JwtBearer will use keys from the Authority metadata instead.
+            IssuerSigningKey         = signingKeyBytes is not null ? new SymmetricSecurityKey(signingKeyBytes) : null,
+            ValidateIssuer           = false,
+            ValidateAudience         = false,
             ValidateLifetime         = true,
             ClockSkew                = TimeSpan.Zero,
+            NameClaimType            = "sub",
         };
     });
 
@@ -132,6 +153,7 @@ builder.Services.AddScoped<ITbTypeService,    TbTypeService>();
 builder.Services.AddScoped<ISymptomService,   SymptomService>();
 builder.Services.AddScoped<IAssessmentService, AssessmentService>();
 builder.Services.AddScoped<IRiskLevelService, RiskLevelService>();
+builder.Services.AddScoped<IAssessmentHistoryWriter, SupabaseAssessmentHistoryWriter>();
 
 // ── CORS ────────────────────────────────────────────────────────────
 var allowedOrigins = builder.Configuration

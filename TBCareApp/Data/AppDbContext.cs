@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<AssessmentQuestion> AssessmentQuestions => Set<AssessmentQuestion>();
     public DbSet<RiskRule> RiskRules => Set<RiskRule>();
     public DbSet<RiskLevel> RiskLevels => Set<RiskLevel>();
+    public DbSet<AssessmentHistory> AssessmentHistories => Set<AssessmentHistory>();
     public DbSet<Profile> Profiles => Set<Profile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
