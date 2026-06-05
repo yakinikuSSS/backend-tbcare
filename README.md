@@ -59,15 +59,20 @@ CRUD endpoints backing the expert-system knowledge base and the assessment confi
 
 ### Configuration
 
-Create a `.env` file in `TBCareApp/` with:
+Copy `.env.example` to `.env` in `TBCareApp/` and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
+The template documents every variable and where to find each value in the Supabase dashboard. In short:
 
 ```env
-DATABASE_URL=Host=localhost;Database=tbcare_plus;Username=postgres;Password=yourpassword
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_KEY=your-anon-key
 SUPABASE_JWT_SECRET=your-jwt-secret
-# Optional — the assessment-history writer falls back to SUPABASE_KEY + the
-# user's bearer token when this is absent.
+DATABASE_URL=Host=your-pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.xxx;Password=your-password;SSL Mode=Require;Trust Server Certificate=true
+# Optional
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
